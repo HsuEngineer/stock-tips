@@ -1,0 +1,8 @@
+# Install on the VM (adjust username):
+#   sudo cp deploy/sudoers-stocktips.example /etc/sudoers.d/stocktips
+#   sudo chmod 440 /etc/sudoers.d/stocktips
+#   sudo visudo -cf /etc/sudoers.d/stocktips
+#
+# Allows the bot user to reboot without a password (needed for /reboot).
+
+ubuntu ALL=NOPASSWD: /sbin/reboot, /usr/sbin/reboot

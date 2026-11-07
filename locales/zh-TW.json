@@ -85,5 +85,17 @@
 
   "cmd.help.desc": "顯示指令列表與用法",
   "cmd.help.title": "Stock Tips — 指令說明",
-  "cmd.help.body": "**持股**\n`/buy` — 記錄買進（可零股）。例：ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`（可省略）\n`/sell` — 記錄賣出。欄位同 `/buy`\n`/portfolio` — 查看持股、均價、即時損益\n`/trades` — 近期買賣紀錄（可篩選代號）\n\n**行情**\n`/quote` — 查現價與較開盤%。例：ticker=`2330`\n`/constituents list` — 列出 0050 成分股\n`/constituents refresh` — 更新 0050 清單\n`/digest` — 立刻推播持股與急漲急跌到頻道\n\n**警報**\n`/alert set` — 設定：相對開盤%／股價高於／股價低於\n`/alert list` — 列出警報\n`/alert remove` — 依編號刪除\n\n**設定**\n`/lang` — 查看或切換語言（`en`、`zh-TW`）。也可輸入 `!lang zh-TW`\n`/help` — 本說明\n\n系統每 {minutes} 分鐘自動推播（急漲急跌門檻 ≥ {pct}%）。"
+  "cmd.help.body": "**持股**\n`/buy` — 記錄買進（可零股）。例：ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`（可省略）\n`/sell` — 記錄賣出。欄位同 `/buy`\n`/portfolio` — 查看持股、均價、即時損益\n`/trades` — 近期買賣紀錄（可篩選代號）\n\n**行情**\n`/quote` — 查現價與較開盤%。例：ticker=`2330`\n`/constituents list` — 列出 0050 成分股\n`/constituents refresh` — 更新 0050 清單\n`/digest` — 立刻推播持股與急漲急跌到頻道\n\n**警報**\n`/alert set` — 設定：相對開盤%／股價高於／股價低於\n`/alert list` — 列出警報\n`/alert remove` — 依編號刪除\n\n**設定**\n`/lang` — 查看或切換語言（`en`、`zh-TW`）。也可輸入 `!lang zh-TW`\n`/help` — 本說明\n\n**管理（僅 OWNER_IDS）**\n`/update` — 從 GitHub 拉取最新程式\n`/restart` — 重啟 Python 機器人行程\n`/reboot` — 重開機 VM（需 confirm=`yes`）\n\n系統每 {minutes} 分鐘自動推播（急漲急跌門檻 ≥ {pct}%）。",
+
+  "cmd.ops.denied": "權限不足：只有設定在 OWNER_IDS 的 Discord 帳號可執行。",
+  "cmd.update.desc": "從 GitHub 更新程式（僅管理員）",
+  "cmd.update.ok": "已更新到 GitHub 最新版本。",
+  "cmd.update.fail": "更新失敗：{error}",
+  "cmd.restart.desc": "重啟 Python 機器人（僅管理員）",
+  "cmd.restart.ok": "正在重啟機器人…",
+  "cmd.reboot.desc": "重開機整台 VM（僅管理員）",
+  "cmd.reboot.confirm": "輸入 yes 確認重開機",
+  "cmd.reboot.need_confirm": "已取消。請將 confirm 設為 `yes` 才會重開機。",
+  "cmd.reboot.ok": "正在重開機 VM…",
+  "cmd.reboot.fail": "重開機失敗：{error}"
 }

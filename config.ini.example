@@ -8,6 +8,9 @@ DATABASE=Stock
 [DISCORD]
 TOKEN=your_bot_token
 CHANNEL_ID=1234567890
+# Your Discord user id(s), comma-separated. Required for /update /restart /reboot
+# Enable Developer Mode in Discord → right-click your avatar → Copy User ID
+OWNER_IDS=1234567890
 
 [STOCK]
 POLL_INTERVAL_MINUTES=10

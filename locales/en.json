@@ -85,5 +85,17 @@
 
   "cmd.help.desc": "Show command list and how to use them",
   "cmd.help.title": "Stock Tips — command help",
-  "cmd.help.body": "**Portfolio**\n`/buy` — record a buy (odd lots OK). Example: ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`(optional)\n`/sell` — record a sell. Same fields as `/buy`\n`/portfolio` — show holdings, avg cost, live P&L\n`/trades` — recent buy/sell history (optional ticker filter)\n\n**Market**\n`/quote` — single last price + vs open. Example: ticker=`2330`\n`/constituents list` — list 0050 constituents\n`/constituents refresh` — refresh 0050 list\n`/digest` — post portfolio + sharp movers to the channel now\n\n**Alerts**\n`/alert set` — set rule: % vs open / price above / price below\n`/alert list` — list alerts\n`/alert remove` — remove by id\n\n**Settings**\n`/lang` — show or switch language (`en`, `zh-TW`). Or type `!lang zh-TW`\n`/help` — this help\n\nScheduled digest runs every {minutes} minutes (sharp move ≥ {pct}%)."
+  "cmd.help.body": "**Portfolio**\n`/buy` — record a buy (odd lots OK). Example: ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`(optional)\n`/sell` — record a sell. Same fields as `/buy`\n`/portfolio` — show holdings, avg cost, live P&L\n`/trades` — recent buy/sell history (optional ticker filter)\n\n**Market**\n`/quote` — single last price + vs open. Example: ticker=`2330`\n`/constituents list` — list 0050 constituents\n`/constituents refresh` — refresh 0050 list\n`/digest` — post portfolio + sharp movers to the channel now\n\n**Alerts**\n`/alert set` — set rule: % vs open / price above / price below\n`/alert list` — list alerts\n`/alert remove` — remove by id\n\n**Settings**\n`/lang` — show or switch language (`en`, `zh-TW`). Or type `!lang zh-TW`\n`/help` — this help\n\n**Admin (OWNER_IDS only)**\n`/update` — `git fetch` + reset to latest GitHub code\n`/restart` — restart the Python bot process\n`/reboot` — reboot the VM (`confirm=yes` required)\n\nScheduled digest runs every {minutes} minutes (sharp move ≥ {pct}%).",
+
+  "cmd.ops.denied": "Denied: only configured Discord OWNER_IDS can run this.",
+  "cmd.update.desc": "Pull latest code from GitHub (owner only)",
+  "cmd.update.ok": "Code updated to latest GitHub version.",
+  "cmd.update.fail": "Update failed: {error}",
+  "cmd.restart.desc": "Restart the Python bot (owner only)",
+  "cmd.restart.ok": "Restarting bot process now…",
+  "cmd.reboot.desc": "Reboot the VM (owner only)",
+  "cmd.reboot.confirm": "Type yes to confirm reboot",
+  "cmd.reboot.need_confirm": "Reboot cancelled. Set confirm=`yes` to proceed.",
+  "cmd.reboot.ok": "Rebooting VM now…",
+  "cmd.reboot.fail": "Reboot failed: {error}"
 }

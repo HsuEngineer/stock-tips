@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime
 
 import discord
@@ -7,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import constituents as constituents_mod
+import ops
 import portfolio as portfolio_mod
 from i18n import I18n, list_languages, save_language_to_config
 from stock import (
@@ -37,6 +39,16 @@ def _parse_date(raw: str | None) -> date | None:
     return datetime.strptime(raw, "%Y-%m-%d").date()
 
 
+def _parse_owner_ids(raw: str | None) -> set[int]:
+    if not raw:
+        return set()
+    ids: set[int] = set()
+    for part in raw.replace(" ", "").split(","):
+        if part.isdigit():
+            ids.add(int(part))
+    return ids
+
+
 class StockTipsBot(commands.Bot):
     def __init__(
         self,
@@ -45,6 +57,7 @@ class StockTipsBot(commands.Bot):
         stock_config: dict,
         channel_id: int,
         i18n: I18n,
+        owner_ids: set[int] | None = None,
         **kwargs,
     ):
         intents = discord.Intents.default()
@@ -59,11 +72,15 @@ class StockTipsBot(commands.Bot):
         self.stock_config = stock_config
         self.channel_id = channel_id
         self.i18n = i18n
+        self.owner_ids = owner_ids or set()
         self.poll_minutes = int(stock_config.get("poll_interval_minutes", 10))
         self.sharp_pct = float(stock_config.get("sharp_move_pct", 2.0))
         self.fund_id = str(stock_config.get("etf_fund_id", "1066"))
         months_raw = stock_config.get("constituent_refresh_months", "3,6,9,12")
         self.refresh_months = [int(x.strip()) for x in months_raw.split(",") if x.strip()]
+
+    def is_owner(self, user_id: int) -> bool:
+        return user_id in self.owner_ids
 
     async def setup_hook(self) -> None:
         if not self.poll_loop.is_running():
@@ -233,9 +250,14 @@ def create_bot(
 ) -> StockTipsBot:
     token = discord_config["token"]
     channel_id = int(discord_config["channel_id"])
+    owner_ids = _parse_owner_ids(discord_config.get("owner_ids"))
     i18n = i18n or I18n("en")
     bot = StockTipsBot(
-        db=db, stock_config=stock_config, channel_id=channel_id, i18n=i18n
+        db=db,
+        stock_config=stock_config,
+        channel_id=channel_id,
+        i18n=i18n,
+        owner_ids=owner_ids,
     )
 
     @bot.tree.command(name="buy", description=i18n.t("cmd.buy.desc"))
@@ -588,6 +610,64 @@ def create_bot(
             return
         ok, msg = await _apply_language(code)
         await ctx.reply(msg)
+
+    async def _deny_if_not_owner(interaction: discord.Interaction) -> bool:
+        if bot.is_owner(interaction.user.id):
+            return False
+        await interaction.response.send_message(
+            bot.i18n.t("cmd.ops.denied"), ephemeral=True
+        )
+        return True
+
+    @bot.tree.command(name="update", description=i18n.t("cmd.update.desc"))
+    async def update_cmd(interaction: discord.Interaction):
+        if await _deny_if_not_owner(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(ops.git_update)
+            text = bot.i18n.t("cmd.update.ok") + "\n```\n" + result[-1500:] + "\n```"
+            await interaction.followup.send(text[:1900], ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(
+                bot.i18n.t("cmd.update.fail", error=e), ephemeral=True
+            )
+
+    @bot.tree.command(name="restart", description=i18n.t("cmd.restart.desc"))
+    async def restart_cmd(interaction: discord.Interaction):
+        if await _deny_if_not_owner(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send(bot.i18n.t("cmd.restart.ok"), ephemeral=True)
+
+        async def _do_restart():
+            await asyncio.sleep(1)
+            try:
+                await bot.close()
+            finally:
+                ops.restart_process()
+
+        asyncio.create_task(_do_restart())
+
+    @bot.tree.command(name="reboot", description=i18n.t("cmd.reboot.desc"))
+    @app_commands.describe(confirm=i18n.t("cmd.reboot.confirm"))
+    async def reboot_cmd(interaction: discord.Interaction, confirm: str):
+        if await _deny_if_not_owner(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        if confirm.strip().lower() not in ("yes", "y", "confirm", "是"):
+            await interaction.followup.send(
+                bot.i18n.t("cmd.reboot.need_confirm"), ephemeral=True
+            )
+            return
+        try:
+            await interaction.followup.send(bot.i18n.t("cmd.reboot.ok"), ephemeral=True)
+            await asyncio.sleep(1)
+            await asyncio.to_thread(ops.reboot_vm)
+        except Exception as e:
+            await interaction.followup.send(
+                bot.i18n.t("cmd.reboot.fail", error=e), ephemeral=True
+            )
 
     bot._stock_token = token  # noqa: SLF001
     return bot

@@ -18,6 +18,22 @@ class Database:
 
     def connect(self):
         try:
+            # Ensure database exists (fresh VM / first run)
+            bootstrap = pymysql.connect(
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                charset="utf8mb4",
+                autocommit=True,
+            )
+            with bootstrap.cursor() as cur:
+                cur.execute(
+                    f"CREATE DATABASE IF NOT EXISTS `{self.database}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+            bootstrap.close()
+
             self.conn = pymysql.connect(
                 host=self.host,
                 port=self.port,
@@ -30,7 +46,11 @@ class Database:
             )
             self.cursor = self.conn.cursor()
         except pymysql.Error as e:
-            raise Exception(f"Error connecting to database: {e}") from e
+            raise Exception(
+                f"Error connecting to MySQL {self.user}@{self.host}:{self.port}/{self.database}: {e}. "
+                "On a new VM run ./create_env.bash (installs MySQL + creates DB), "
+                "or check HOST/PASSWORD in config.ini."
+            ) from e
 
     def close(self):
         if self.cursor:

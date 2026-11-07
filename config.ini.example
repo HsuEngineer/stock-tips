@@ -2,7 +2,7 @@
 HOST=localhost
 PORT=3306
 USER=root
-PASSWORD=your_password
+PASSWORD=P@ssw0rd
 DATABASE=Stock
 
 [DISCORD]

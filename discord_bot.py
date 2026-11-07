@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
 import constituents as constituents_mod
 import portfolio as portfolio_mod
+from i18n import I18n, list_languages, save_language_to_config
 from stock import (
     fetch_quote,
     fetch_quotes,
@@ -16,16 +18,16 @@ from stock import (
 )
 
 
-def _fmt_pct(value: float | None) -> str:
+def _fmt_pct(i18n: I18n, value: float | None) -> str:
     if value is None:
-        return "n/a"
+        return i18n.t("na")
     sign = "+" if value >= 0 else ""
     return f"{sign}{value:.2f}%"
 
 
-def _fmt_money(value: float | None) -> str:
+def _fmt_money(i18n: I18n, value: float | None) -> str:
     if value is None:
-        return "n/a"
+        return i18n.t("na")
     return f"{value:,.2f}"
 
 
@@ -42,6 +44,7 @@ class StockTipsBot(commands.Bot):
         db,
         stock_config: dict,
         channel_id: int,
+        i18n: I18n,
         **kwargs,
     ):
         intents = discord.Intents.default()
@@ -50,6 +53,7 @@ class StockTipsBot(commands.Bot):
         self.db = db
         self.stock_config = stock_config
         self.channel_id = channel_id
+        self.i18n = i18n
         self.poll_minutes = int(stock_config.get("poll_interval_minutes", 10))
         self.sharp_pct = float(stock_config.get("sharp_move_pct", 2.0))
         self.fund_id = str(stock_config.get("etf_fund_id", "1066"))
@@ -62,7 +66,7 @@ class StockTipsBot(commands.Bot):
             self.poll_loop.start()
 
     async def on_ready(self) -> None:
-        print(f"Discord bot logged in as {self.user}")
+        print(f"Discord bot logged in as {self.user} (lang={self.i18n.lang})")
         try:
             synced = await self.tree.sync()
             print(f"Synced {len(synced)} slash command(s)")
@@ -78,6 +82,7 @@ class StockTipsBot(commands.Bot):
         await self.wait_until_ready()
 
     async def run_digest(self) -> None:
+        t = self.i18n.t
         channel = self.get_channel(self.channel_id)
         if channel is None:
             try:
@@ -106,12 +111,14 @@ class StockTipsBot(commands.Bot):
                 print(f"Quote fetch error: {e}")
 
         portfolio_rows = portfolio_mod.enrich_positions(positions, quotes)
-        const_quotes = {t: quotes[t] for t in const_tickers if t in quotes}
+        const_quotes = {x: quotes[x] for x in const_tickers if x in quotes}
         movers = filter_sharp_movers(const_quotes, self.sharp_pct)
 
         embed = discord.Embed(
-            title="Stock Tips digest",
-            description=f"Updated {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            title=t("digest.title"),
+            description=t(
+                "digest.updated", time=datetime.now().strftime("%Y-%m-%d %H:%M")
+            ),
             color=discord.Color.dark_teal(),
         )
 
@@ -120,22 +127,26 @@ class StockTipsBot(commands.Bot):
             for row in portfolio_rows:
                 code = row["ticker"].replace(".TW", "")
                 lines.append(
-                    f"**{code}** qty {float(row['shares']):g} | "
-                    f"avg {_fmt_money(float(row['avg_cost']))} | "
-                    f"last {_fmt_money(row['last_price'])} | "
-                    f"P&L {_fmt_money(row['unrealized_pnl'])} "
-                    f"({_fmt_pct(row['pct_vs_avg'])}) | "
-                    f"vs open {_fmt_pct(row['pct_vs_open'])} | "
-                    f"bought {row['first_buy_date']}"
+                    t(
+                        "digest.portfolio_line",
+                        code=code,
+                        shares=float(row["shares"]),
+                        avg=_fmt_money(self.i18n, float(row["avg_cost"])),
+                        last=_fmt_money(self.i18n, row["last_price"]),
+                        pnl=_fmt_money(self.i18n, row["unrealized_pnl"]),
+                        pct_avg=_fmt_pct(self.i18n, row["pct_vs_avg"]),
+                        pct_open=_fmt_pct(self.i18n, row["pct_vs_open"]),
+                        first_buy=row["first_buy_date"],
+                    )
                 )
             text = "\n".join(lines)
             if len(text) > 1000:
                 text = text[:997] + "..."
-            embed.add_field(name="My portfolio", value=text, inline=False)
+            embed.add_field(name=t("digest.portfolio"), value=text, inline=False)
         else:
             embed.add_field(
-                name="My portfolio",
-                value="No open positions. Use `/buy` to add one.",
+                name=t("digest.portfolio"),
+                value=t("digest.portfolio_empty"),
                 inline=False,
             )
 
@@ -146,17 +157,23 @@ class StockTipsBot(commands.Bot):
             }
             for q in movers[:20]:
                 code = q.ticker.replace(".TW", "")
-                name = name_map.get(q.ticker, "")
                 arrow = "▲" if (q.pct_vs_open or 0) >= 0 else "▼"
                 lines.append(
-                    f"{arrow} **{code}** {name} {_fmt_pct(q.pct_vs_open)} | "
-                    f"open {_fmt_money(q.open)} → {_fmt_money(q.price)}"
+                    t(
+                        "digest.mover_line",
+                        arrow=arrow,
+                        code=code,
+                        name=name_map.get(q.ticker, ""),
+                        pct=_fmt_pct(self.i18n, q.pct_vs_open),
+                        open=_fmt_money(self.i18n, q.open),
+                        price=_fmt_money(self.i18n, q.price),
+                    )
                 )
-            embed.add_field(name="0050 sharp movers", value="\n".join(lines), inline=False)
+            embed.add_field(name=t("digest.movers"), value="\n".join(lines), inline=False)
         else:
             embed.add_field(
-                name="0050 sharp movers",
-                value=f"No movers ≥ {self.sharp_pct:g}% vs open.",
+                name=t("digest.movers"),
+                value=t("digest.movers_empty", pct=self.sharp_pct),
                 inline=False,
             )
 
@@ -191,23 +208,38 @@ class StockTipsBot(commands.Bot):
                 (datetime.now(), alert["id"]),
             )
             await channel.send(
-                f"Alert #{alert['id']}: **{ticker}** {rule} {thr} — "
-                f"last {_fmt_money(quote.price)} vs open {_fmt_pct(quote.pct_vs_open)}"
+                self.i18n.t(
+                    "alert.fired",
+                    id=alert["id"],
+                    ticker=ticker,
+                    rule=self.i18n.rule(rule),
+                    threshold=thr,
+                    price=_fmt_money(self.i18n, quote.price),
+                    pct_open=_fmt_pct(self.i18n, quote.pct_vs_open),
+                )
             )
 
 
-def create_bot(db, discord_config: dict, stock_config: dict) -> StockTipsBot:
+def create_bot(
+    db,
+    discord_config: dict,
+    stock_config: dict,
+    i18n: I18n | None = None,
+) -> StockTipsBot:
     token = discord_config["token"]
     channel_id = int(discord_config["channel_id"])
-    bot = StockTipsBot(db=db, stock_config=stock_config, channel_id=channel_id)
+    i18n = i18n or I18n("en")
+    bot = StockTipsBot(
+        db=db, stock_config=stock_config, channel_id=channel_id, i18n=i18n
+    )
 
-    @bot.tree.command(name="buy", description="Record a buy (odd lots OK)")
+    @bot.tree.command(name="buy", description=i18n.t("cmd.buy.desc"))
     @app_commands.describe(
-        ticker="TW code e.g. 2330",
-        shares="Share quantity (零股 OK)",
-        price="Single fill price",
-        trade_date="YYYY-MM-DD (optional)",
-        note="Optional note",
+        ticker=i18n.t("cmd.buy.ticker"),
+        shares=i18n.t("cmd.buy.shares"),
+        price=i18n.t("cmd.buy.price"),
+        trade_date=i18n.t("cmd.buy.trade_date"),
+        note=i18n.t("cmd.buy.note"),
     )
     async def buy(
         interaction: discord.Interaction,
@@ -222,20 +254,28 @@ def create_bot(db, discord_config: dict, stock_config: dict) -> StockTipsBot:
             when = _parse_date(trade_date)
             pos = portfolio_mod.record_buy(bot.db, ticker, shares, price, when, note)
             await interaction.followup.send(
-                f"Bought {shares:g} x {pos['ticker']} @ {price} — "
-                f"avg cost {float(pos['avg_cost']):.4f}, qty {float(pos['shares']):g}",
+                bot.i18n.t(
+                    "cmd.buy.ok",
+                    shares=shares,
+                    ticker=pos["ticker"],
+                    price=price,
+                    avg=float(pos["avg_cost"]),
+                    qty=float(pos["shares"]),
+                ),
                 ephemeral=True,
             )
         except Exception as e:
-            await interaction.followup.send(f"Buy failed: {e}", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.buy.fail", error=e), ephemeral=True
+            )
 
-    @bot.tree.command(name="sell", description="Record a sell (odd lots OK)")
+    @bot.tree.command(name="sell", description=i18n.t("cmd.sell.desc"))
     @app_commands.describe(
-        ticker="TW code e.g. 2330",
-        shares="Share quantity",
-        price="Single fill price",
-        trade_date="YYYY-MM-DD (optional)",
-        note="Optional note",
+        ticker=i18n.t("cmd.sell.ticker"),
+        shares=i18n.t("cmd.sell.shares"),
+        price=i18n.t("cmd.sell.price"),
+        trade_date=i18n.t("cmd.sell.trade_date"),
+        note=i18n.t("cmd.sell.note"),
     )
     async def sell(
         interaction: discord.Interaction,
@@ -250,112 +290,157 @@ def create_bot(db, discord_config: dict, stock_config: dict) -> StockTipsBot:
             when = _parse_date(trade_date)
             pos = portfolio_mod.record_sell(bot.db, ticker, shares, price, when, note)
             if pos is None:
-                msg = f"Sold {shares:g} x {normalize_tw_ticker(ticker)} — position closed"
+                msg = bot.i18n.t(
+                    "cmd.sell.closed",
+                    shares=shares,
+                    ticker=normalize_tw_ticker(ticker),
+                )
             else:
-                msg = (
-                    f"Sold {shares:g} x {pos['ticker']} @ {price} — "
-                    f"remaining {float(pos['shares']):g}, avg {float(pos['avg_cost']):.4f}"
+                msg = bot.i18n.t(
+                    "cmd.sell.ok",
+                    shares=shares,
+                    ticker=pos["ticker"],
+                    price=price,
+                    qty=float(pos["shares"]),
+                    avg=float(pos["avg_cost"]),
                 )
             await interaction.followup.send(msg, ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Sell failed: {e}", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.sell.fail", error=e), ephemeral=True
+            )
 
-    @bot.tree.command(name="portfolio", description="Show open positions with live P&L")
+    @bot.tree.command(name="portfolio", description=i18n.t("cmd.portfolio.desc"))
     async def portfolio_cmd(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         positions = portfolio_mod.list_positions(bot.db)
         if not positions:
-            await interaction.followup.send("No open positions.", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.portfolio.empty"), ephemeral=True
+            )
             return
         quotes = fetch_quotes([p["ticker"] for p in positions])
         rows = portfolio_mod.enrich_positions(positions, quotes)
-        lines = []
-        for row in rows:
-            lines.append(
-                f"**{row['ticker']}** qty {float(row['shares']):g} | "
-                f"avg {_fmt_money(float(row['avg_cost']))} | "
-                f"last {_fmt_money(row['last_price'])} | "
-                f"P&L {_fmt_money(row['unrealized_pnl'])} ({_fmt_pct(row['pct_vs_avg'])}) | "
-                f"vs open {_fmt_pct(row['pct_vs_open'])} | "
-                f"first buy {row['first_buy_date']}"
+        lines = [
+            bot.i18n.t(
+                "cmd.portfolio.line",
+                ticker=row["ticker"],
+                shares=float(row["shares"]),
+                avg=_fmt_money(bot.i18n, float(row["avg_cost"])),
+                last=_fmt_money(bot.i18n, row["last_price"]),
+                pnl=_fmt_money(bot.i18n, row["unrealized_pnl"]),
+                pct_avg=_fmt_pct(bot.i18n, row["pct_vs_avg"]),
+                pct_open=_fmt_pct(bot.i18n, row["pct_vs_open"]),
+                first_buy=row["first_buy_date"],
             )
+            for row in rows
+        ]
         await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
 
-    @bot.tree.command(name="trades", description="Show recent buy/sell history")
-    @app_commands.describe(ticker="Optional ticker filter")
+    @bot.tree.command(name="trades", description=i18n.t("cmd.trades.desc"))
+    @app_commands.describe(ticker=i18n.t("cmd.trades.ticker"))
     async def trades(interaction: discord.Interaction, ticker: str | None = None):
         await interaction.response.defer(ephemeral=True)
         rows = portfolio_mod.list_transactions(bot.db, ticker)
         if not rows:
-            await interaction.followup.send("No trades found.", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.trades.empty"), ephemeral=True
+            )
             return
         lines = [
-            f"#{r['id']} {r['trade_date']} {r['side'].upper()} {r['ticker']} "
-            f"{float(r['shares']):g} @ {float(r['price']):.2f}"
-            + (f" ({r['note']})" if r.get("note") else "")
+            bot.i18n.t(
+                "cmd.trades.line",
+                id=r["id"],
+                date=r["trade_date"],
+                side=bot.i18n.side(r["side"]),
+                ticker=r["ticker"],
+                shares=float(r["shares"]),
+                price=float(r["price"]),
+                note=f" ({r['note']})" if r.get("note") else "",
+            )
             for r in rows[:30]
         ]
         await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
 
-    constituents = app_commands.Group(name="constituents", description="0050 constituents")
+    constituents = app_commands.Group(
+        name="constituents", description=i18n.t("cmd.constituents.desc")
+    )
 
-    @constituents.command(name="list", description="List current 0050 constituents")
+    @constituents.command(name="list", description=i18n.t("cmd.constituents.list.desc"))
     async def constituents_list(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         rows = constituents_mod.list_constituents(bot.db)
         if not rows:
             await interaction.followup.send(
-                "No constituents cached. Try `/constituents refresh`.",
-                ephemeral=True,
+                bot.i18n.t("cmd.constituents.list.empty"), ephemeral=True
             )
             return
         lines = [
             f"{r['ticker'].replace('.TW', '')} {r['name']} "
-            f"({float(r['weight']) if r['weight'] is not None else 'n/a'}%)"
+            f"({float(r['weight']) if r['weight'] is not None else bot.i18n.t('na')}%)"
             for r in rows[:50]
         ]
         await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
 
-    @constituents.command(name="refresh", description="Force refresh 0050 from Yuanta")
+    @constituents.command(
+        name="refresh", description=i18n.t("cmd.constituents.refresh.desc")
+    )
     async def constituents_refresh(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
             n = constituents_mod.refresh_if_needed(
                 bot.db, bot.fund_id, bot.refresh_months, force=True
             )
-            await interaction.followup.send(f"Refreshed {n} constituents.", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.constituents.refresh.ok", count=n), ephemeral=True
+            )
         except Exception as e:
-            await interaction.followup.send(f"Refresh failed: {e}", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.constituents.refresh.fail", error=e), ephemeral=True
+            )
 
     bot.tree.add_command(constituents)
 
-    @bot.tree.command(name="quote", description="On-demand single-price quote")
-    @app_commands.describe(ticker="TW code e.g. 2330")
+    @bot.tree.command(name="quote", description=i18n.t("cmd.quote.desc"))
+    @app_commands.describe(ticker=i18n.t("cmd.quote.ticker"))
     async def quote_cmd(interaction: discord.Interaction, ticker: str):
         await interaction.response.defer(ephemeral=True)
         q = fetch_quote(ticker)
         if not q:
-            await interaction.followup.send(f"No quote for {ticker}", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.quote.missing", ticker=ticker), ephemeral=True
+            )
             return
         await interaction.followup.send(
-            f"**{q.ticker}** last {_fmt_money(q.price)} | "
-            f"open {_fmt_money(q.open)} | vs open {_fmt_pct(q.pct_vs_open)}",
+            bot.i18n.t(
+                "cmd.quote.ok",
+                ticker=q.ticker,
+                price=_fmt_money(bot.i18n, q.price),
+                open=_fmt_money(bot.i18n, q.open),
+                pct_open=_fmt_pct(bot.i18n, q.pct_vs_open),
+            ),
             ephemeral=True,
         )
 
-    alert = app_commands.Group(name="alert", description="Custom price alerts")
+    alert = app_commands.Group(name="alert", description=i18n.t("cmd.alert.desc"))
 
-    @alert.command(name="set", description="Set an alert")
+    @alert.command(name="set", description=i18n.t("cmd.alert.set.desc"))
     @app_commands.describe(
-        ticker="TW code",
-        rule_type="pct_vs_open | price_above | price_below",
-        threshold="Threshold value",
+        ticker=i18n.t("cmd.alert.set.ticker"),
+        rule_type=i18n.t("cmd.alert.set.rule_type"),
+        threshold=i18n.t("cmd.alert.set.threshold"),
     )
     @app_commands.choices(
         rule_type=[
-            app_commands.Choice(name="pct_vs_open", value="pct_vs_open"),
-            app_commands.Choice(name="price_above", value="price_above"),
-            app_commands.Choice(name="price_below", value="price_below"),
+            app_commands.Choice(
+                name=i18n.t("cmd.alert.set.choice.pct"), value="pct_vs_open"
+            ),
+            app_commands.Choice(
+                name=i18n.t("cmd.alert.set.choice.above"), value="price_above"
+            ),
+            app_commands.Choice(
+                name=i18n.t("cmd.alert.set.choice.below"), value="price_below"
+            ),
         ]
     )
     async def alert_set(
@@ -374,39 +459,87 @@ def create_bot(db, discord_config: dict, stock_config: dict) -> StockTipsBot:
             (symbol, rule_type.value, threshold),
         )
         await interaction.followup.send(
-            f"Alert #{alert_id}: {symbol} {rule_type.value} {threshold}",
+            bot.i18n.t(
+                "cmd.alert.set.ok",
+                id=alert_id,
+                ticker=symbol,
+                rule=bot.i18n.rule(rule_type.value),
+                threshold=threshold,
+            ),
             ephemeral=True,
         )
 
-    @alert.command(name="list", description="List alerts")
+    @alert.command(name="list", description=i18n.t("cmd.alert.list.desc"))
     async def alert_list(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         rows = bot.db.fetchall("SELECT * FROM alerts ORDER BY id")
         if not rows:
-            await interaction.followup.send("No alerts.", ephemeral=True)
+            await interaction.followup.send(
+                bot.i18n.t("cmd.alert.list.empty"), ephemeral=True
+            )
             return
         lines = [
-            f"#{r['id']} {r['ticker']} {r['rule_type']} {float(r['threshold'])} "
-            f"{'on' if r['enabled'] else 'off'}"
+            bot.i18n.t(
+                "cmd.alert.list.line",
+                id=r["id"],
+                ticker=r["ticker"],
+                rule=bot.i18n.rule(r["rule_type"]),
+                threshold=float(r["threshold"]),
+                enabled=bot.i18n.t("rule.enabled" if r["enabled"] else "rule.disabled"),
+            )
             for r in rows
         ]
         await interaction.followup.send("\n".join(lines), ephemeral=True)
 
-    @alert.command(name="remove", description="Remove an alert by id")
+    @alert.command(name="remove", description=i18n.t("cmd.alert.remove.desc"))
+    @app_commands.describe(alert_id=i18n.t("cmd.alert.remove.id"))
     async def alert_remove(interaction: discord.Interaction, alert_id: int):
         await interaction.response.defer(ephemeral=True)
         bot.db.execute("DELETE FROM alerts WHERE id = %s", (alert_id,))
-        await interaction.followup.send(f"Removed alert #{alert_id}", ephemeral=True)
+        await interaction.followup.send(
+            bot.i18n.t("cmd.alert.remove.ok", id=alert_id), ephemeral=True
+        )
 
     bot.tree.add_command(alert)
 
-    @bot.tree.command(name="digest", description="Run digest now")
+    @bot.tree.command(name="digest", description=i18n.t("cmd.digest.desc"))
     async def digest_now(interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await bot.run_digest()
-        await interaction.followup.send("Digest posted to channel.", ephemeral=True)
+        await interaction.followup.send(bot.i18n.t("cmd.digest.ok"), ephemeral=True)
 
-    # Keep token accessible for runner
+    @bot.tree.command(name="lang", description=i18n.t("cmd.lang.desc"))
+    @app_commands.describe(code=i18n.t("cmd.lang.code"))
+    async def lang_cmd(interaction: discord.Interaction, code: str | None = None):
+        await interaction.response.defer(ephemeral=True)
+        available = ", ".join(list_languages())
+        if not code:
+            await interaction.followup.send(
+                bot.i18n.t(
+                    "cmd.lang.list", lang=bot.i18n.lang, available=available
+                ),
+                ephemeral=True,
+            )
+            return
+
+        wanted = code.strip()
+        known = {x.lower(): x for x in list_languages()}
+        if wanted.lower() not in known and wanted.lower() not in ("zh",):
+            await interaction.followup.send(
+                bot.i18n.t("cmd.lang.fail", lang=wanted, available=available),
+                ephemeral=True,
+            )
+            return
+
+        new_lang = bot.i18n.set_language(wanted)
+        try:
+            save_language_to_config(new_lang)
+        except Exception as e:
+            print(f"Could not persist language: {e}")
+        await interaction.followup.send(
+            bot.i18n.t("cmd.lang.ok", lang=new_lang), ephemeral=True
+        )
+
     bot._stock_token = token  # noqa: SLF001
     return bot
 

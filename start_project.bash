@@ -9,4 +9,14 @@ set -euo pipefail
 echo "Starting Stock Tips..."
 # shellcheck disable=SC1091
 source .venv/bin/activate
-python main.py
+
+if command -v python >/dev/null 2>&1; then
+  PYTHON=python
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+else
+  echo "Error: Python not found in venv. Run ./create_env.bash first."
+  exit 1
+fi
+
+"$PYTHON" main.py

@@ -5,6 +5,7 @@ from pathlib import Path
 from constituents import refresh_if_needed
 from database import Database
 from discord_bot import create_bot, run_bot
+from i18n import I18n
 
 
 def load_config(path: str = "config.ini") -> configparser.ConfigParser:
@@ -31,6 +32,10 @@ def main() -> None:
     db_cfg = section_dict(config, "DATABASE")
     discord_cfg = section_dict(config, "DISCORD")
     stock_cfg = section_dict(config, "STOCK")
+    app_cfg = section_dict(config, "APP") if "APP" in config else {}
+
+    i18n = I18n(app_cfg.get("language", "zh-TW"))
+    print(f"Language: {i18n.lang}")
 
     db = Database(db_cfg)
     db.init_schema()
@@ -59,7 +64,7 @@ def main() -> None:
         print("Set DISCORD.TOKEN in config.ini before starting the bot.")
         sys.exit(1)
 
-    bot = create_bot(db, discord_cfg, stock_cfg)
+    bot = create_bot(db, discord_cfg, stock_cfg, i18n=i18n)
     print(
         f"Bot ready. Poll every {stock_cfg.get('poll_interval_minutes', 10)} min; "
         f"sharp move ≥ {stock_cfg.get('sharp_move_pct', 2.0)}%."

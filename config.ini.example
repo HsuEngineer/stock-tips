@@ -14,3 +14,7 @@ POLL_INTERVAL_MINUTES=10
 SHARP_MOVE_PCT=2.0
 CONSTITUENT_REFRESH_MONTHS=3,6,9,12
 ETF_FUND_ID=1066
+
+[APP]
+# Available: en, zh-TW (add more by copying locales/en.json)
+LANGUAGE=zh-TW

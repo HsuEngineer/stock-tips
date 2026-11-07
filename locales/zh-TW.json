@@ -81,5 +81,9 @@
   "cmd.lang.code": "選擇語言（或輸入 en / zh-TW）",
   "cmd.lang.ok": "已切換為 **{lang}**。回覆內容已立即更新；斜線選單提示需重啟機器人才會刷新。",
   "cmd.lang.fail": "不支援語言 `{lang}`。可用：{available}",
-  "cmd.lang.list": "目前語言：**{lang}**。可用：{available}\n請用 `/lang` 再選 `code`，或直接輸入 `!lang zh-TW`"
+  "cmd.lang.list": "目前語言：**{lang}**。可用：{available}\n請用 `/lang` 再選 `code`，或直接輸入 `!lang zh-TW`",
+
+  "cmd.help.desc": "顯示指令列表與用法",
+  "cmd.help.title": "Stock Tips — 指令說明",
+  "cmd.help.body": "**持股**\n`/buy` — 記錄買進（可零股）。例：ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`（可省略）\n`/sell` — 記錄賣出。欄位同 `/buy`\n`/portfolio` — 查看持股、均價、即時損益\n`/trades` — 近期買賣紀錄（可篩選代號）\n\n**行情**\n`/quote` — 查現價與較開盤%。例：ticker=`2330`\n`/constituents list` — 列出 0050 成分股\n`/constituents refresh` — 更新 0050 清單\n`/digest` — 立刻推播持股與急漲急跌到頻道\n\n**警報**\n`/alert set` — 設定：相對開盤%／股價高於／股價低於\n`/alert list` — 列出警報\n`/alert remove` — 依編號刪除\n\n**設定**\n`/lang` — 查看或切換語言（`en`、`zh-TW`）。也可輸入 `!lang zh-TW`\n`/help` — 本說明\n\n系統每 {minutes} 分鐘自動推播（急漲急跌門檻 ≥ {pct}%）。"
 }

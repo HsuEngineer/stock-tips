@@ -49,7 +49,12 @@ class StockTipsBot(commands.Bot):
     ):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix="!", intents=intents, **kwargs)
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+            help_command=None,
+            **kwargs,
+        )
         self.db = db
         self.stock_config = stock_config
         self.channel_id = channel_id
@@ -507,6 +512,24 @@ def create_bot(
         await interaction.response.defer(ephemeral=True)
         await bot.run_digest()
         await interaction.followup.send(bot.i18n.t("cmd.digest.ok"), ephemeral=True)
+
+    def _help_text() -> str:
+        body = bot.i18n.t(
+            "cmd.help.body",
+            minutes=bot.poll_minutes,
+            pct=bot.sharp_pct,
+        )
+        return f"**{bot.i18n.t('cmd.help.title')}**\n\n{body}"
+
+    @bot.tree.command(name="help", description=i18n.t("cmd.help.desc"))
+    async def help_cmd(interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send(_help_text()[:1900], ephemeral=True)
+
+    @bot.command(name="help")
+    async def help_prefix(ctx: commands.Context):
+        """Fallback: type !help in chat."""
+        await ctx.reply(_help_text()[:1900])
 
     async def _apply_language(code: str) -> tuple[bool, str]:
         available = ", ".join(list_languages())

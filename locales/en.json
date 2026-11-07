@@ -81,5 +81,9 @@
   "cmd.lang.code": "Pick a language (or type en / zh-TW)",
   "cmd.lang.ok": "Language switched to **{lang}**. Reply text is updated now; slash menu hints refresh after bot restart.",
   "cmd.lang.fail": "Unsupported language `{lang}`. Available: {available}",
-  "cmd.lang.list": "Current language: **{lang}**. Available: {available}\nUse `/lang` then choose `code`, or type `!lang zh-TW`"
+  "cmd.lang.list": "Current language: **{lang}**. Available: {available}\nUse `/lang` then choose `code`, or type `!lang zh-TW`",
+
+  "cmd.help.desc": "Show command list and how to use them",
+  "cmd.help.title": "Stock Tips — command help",
+  "cmd.help.body": "**Portfolio**\n`/buy` — record a buy (odd lots OK). Example: ticker=`2330` shares=`10` price=`980` trade_date=`2024-01-15`(optional)\n`/sell` — record a sell. Same fields as `/buy`\n`/portfolio` — show holdings, avg cost, live P&L\n`/trades` — recent buy/sell history (optional ticker filter)\n\n**Market**\n`/quote` — single last price + vs open. Example: ticker=`2330`\n`/constituents list` — list 0050 constituents\n`/constituents refresh` — refresh 0050 list\n`/digest` — post portfolio + sharp movers to the channel now\n\n**Alerts**\n`/alert set` — set rule: % vs open / price above / price below\n`/alert list` — list alerts\n`/alert remove` — remove by id\n\n**Settings**\n`/lang` — show or switch language (`en`, `zh-TW`). Or type `!lang zh-TW`\n`/help` — this help\n\nScheduled digest runs every {minutes} minutes (sharp move ≥ {pct}%)."
 }

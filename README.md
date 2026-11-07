@@ -73,47 +73,54 @@ Discord channel  ←── digest every 10 min
 
 ---
 
-## Quick start
+## Quick start (GCP — automated)
 
-### 1. Clone & bootstrap (Ubuntu / GCP)
+Full guide: **[deploy/README.md](deploy/README.md)**
+
+### Option A — New VM in one command (recommended)
+
+From your laptop / Cloud Shell (needs [`gcloud`](https://cloud.google.com/sdk/docs/install)):
 
 ```bash
 git clone https://github.com/HsuEngineer/stock-tips.git
 cd stock-tips
-chmod +x create_env.bash start_project.bash
+cp deploy/secrets.env.example deploy/secrets.env
+nano deploy/secrets.env          # DISCORD_TOKEN, CHANNEL_ID, OWNER_IDS
+
+chmod +x deploy/*.sh
+./deploy/gcp-create-vm.sh        # creates VM + first-boot install
+```
+
+Watch install (~2–5 min):
+
+```bash
+gcloud compute ssh stock-tips --zone asia-east1-b \
+  --command 'sudo tail -f /var/log/stocktips-startup.log'
+```
+
+Bot runs as **systemd** `stocktips.service` (survives reboot). Then in Discord: `/help` / `/digest`.
+
+### Option B — Existing Ubuntu VM
+
+```bash
+git clone https://github.com/HsuEngineer/stock-tips.git
+cd stock-tips
+cp deploy/secrets.env.example deploy/secrets.env && nano deploy/secrets.env
+chmod +x deploy/install.sh
+sudo ./deploy/install.sh
+sudo systemctl status stocktips
+```
+
+### Option C — Manual / tmux (no systemd)
+
+```bash
 ./create_env.bash
-```
-
-The setup script installs Python/MySQL if needed, creates the `Stock` database, builds `.venv`, and installs dependencies.
-
-### 2. Configure Discord
-
-```bash
-cp config.ini.example config.ini   # if not already created
-nano config.ini
-```
-
-Set at least:
-
-```ini
-[DISCORD]
-TOKEN=your_bot_token
-CHANNEL_ID=1234567890
-OWNER_IDS=your_discord_user_id
-```
-
-> **Owner ID:** Discord → Settings → Advanced → Developer Mode → right-click your avatar → Copy User ID.
-
-Invite the bot with scopes: `bot` + `applications.commands`, and permission to send messages / embeds.
-
-### 3. Run
-
-```bash
+nano config.ini                  # Discord values
 tmux new -s stocktips './start_project.bash'
-# Detach: Ctrl+B, then D
 ```
 
-Then in Discord try `/help`, `/buy`, or `/digest`.
+> **Owner ID:** Discord → Developer Mode → right-click avatar → Copy User ID.  
+> Invite bot with scopes `bot` + `applications.commands`.
 
 ---
 
@@ -178,6 +185,18 @@ sudo visudo -cf /etc/sudoers.d/stocktips
 
 After you push to GitHub: `/update` → `/restart`.
 
+### Keep the bot running
+
+With `deploy/install.sh` or `gcp-create-vm.sh`, systemd owns the process:
+
+```bash
+sudo systemctl status stocktips
+sudo journalctl -u stocktips -f
+sudo systemctl restart stocktips
+```
+
+After Discord `/reboot`, the unit auto-starts. Manual fallback: `tmux new -s stocktips './start_project.bash'`.
+
 ---
 
 ## Portfolio math
@@ -210,23 +229,23 @@ Created automatically on startup:
 
 ```text
 stock-tips/
-├── main.py              # Entry: config → DB → bot
-├── discord_bot.py       # Slash commands + digest loop
-├── portfolio.py         # Ledger & avg-cost
-├── stock.py             # yfinance quotes
-├── constituents.py      # 0050 fetch / cache
-├── database.py          # MySQL + schema
-├── i18n.py              # Locale loader
-├── ops.py               # update / restart / reboot
-├── locales/             # en.json, zh-TW.json
-├── data/                # 0050 seed JSON
-├── deploy/              # sudoers example
-├── create_env.bash      # Fresh VM setup
-├── start_project.bash   # Run bot
-├── PLAN.md              # Product plan
-├── DEVELOPER.md         # Maintainer notes
-├── README.md            # English (this file)
-└── README.zh-TW.md      # 繁體中文
+├── main.py                 # Entry: config → DB → bot
+├── discord_bot.py          # Slash commands + digest loop
+├── portfolio.py / stock.py / constituents.py / database.py
+├── i18n.py + locales/      # en / zh-TW
+├── ops.py                  # /update /restart /reboot (systemd-aware)
+├── deploy/
+│   ├── README.md           # Full GCP automation guide
+│   ├── gcp-create-vm.sh    # Create VM + auto-install
+│   ├── gcp-startup.sh      # First-boot script
+│   ├── install.sh          # Idempotent Ubuntu bootstrap
+│   ├── stocktips.service   # systemd unit template
+│   ├── secrets.env.example # Discord secrets template
+│   └── sudoers-…           # reboot + systemctl
+├── create_env.bash         # Light local bootstrap
+├── start_project.bash      # Foreground run
+├── README.md / README.zh-TW.md
+└── DEVELOPER.md / PLAN.md
 ```
 
 ---
@@ -237,7 +256,8 @@ stock-tips/
 |---------|-----|
 | Bot exits immediately | Set a real `DISCORD.TOKEN` in `config.ini` |
 | No digests | Check `CHANNEL_ID` and bot send permissions |
-| MySQL errors on new VM | Re-run `./create_env.bash` |
+| MySQL errors on new VM | Re-run `sudo ./deploy/install.sh` or `./create_env.bash` |
+| Service won’t stay up | `sudo journalctl -u stocktips -n 80 --no-pager` |
 | Slash commands missing | Wait for sync; re-invite with `applications.commands` |
 | `/update` denied | Add your user id to `OWNER_IDS` |
 | Empty movers | Market closed, or nothing ≥ threshold |
@@ -251,8 +271,8 @@ More detail: [DEVELOPER.md](DEVELOPER.md)
 - Market-hours quiet mode & history retention  
 - Transaction fees / realized P&L summary  
 - Split Discord cogs + reconnect-safe DB  
-- systemd unit for auto-start after reboot  
 
+GCP one-shot install + systemd auto-start after reboot is already in [deploy/](deploy/README.md).  
 See [DEVELOPER.md](DEVELOPER.md) for the full improvement list.
 
 ---

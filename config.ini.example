@@ -1,8 +1,9 @@
 [DATABASE]
 HOST=localhost
 PORT=3306
-USER=root
-PASSWORD=P@ssw0rd
+# deploy/install.sh and create_env.bash create this dedicated user by default
+USER=stocktips
+PASSWORD=change_me
 DATABASE=Stock
 
 [DISCORD]

@@ -1,6 +1,6 @@
 # Developer notes — Stock Tips
 
-Internal guide for Daniel: **project history**, **what works well**, and **what to improve next**. User-facing docs: [README.md](README.md) (English) · [README.zh-TW.md](README.zh-TW.md) (繁中). Product plan: [PLAN.md](PLAN.md).
+Internal guide for Daniel: **project history**, **what works well**, and **what to improve next**. User-facing docs: [README.md](README.md) (English) · [README.zh-TW.md](README.zh-TW.md) (繁中). GCP automation: [deploy/README.md](deploy/README.md). Product plan: [PLAN.md](PLAN.md).
 
 ---
 
@@ -84,7 +84,7 @@ Priority order for the next iterations.
 
 | Idea | Why |
 |------|-----|
-| **systemd unit** (not only tmux) | Auto-start after `/reboot` or VM restart |
+| ~~**systemd unit**~~ | **Done** — `deploy/install.sh` + `stocktips.service` + `gcp-create-vm.sh` |
 | **Market-hours gate** | Skip digests nights/weekends (TW session) to cut noise + yfinance load |
 | **price_history retention** | Cron/job to delete rows older than N days — table grows every 10 min × ~50 tickers |
 | **Health `/status`** | Last poll time, quote success rate, DB ping, uptime |

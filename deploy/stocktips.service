@@ -1,0 +1,29 @@
+[Unit]
+Description=Stock Tips Discord bot (TW portfolio + 0050 digest)
+After=network-online.target mysql.service mysqld.service
+Wants=network-online.target
+# MySQL unit name varies (mysql vs mysqld); do not hard-Require so install still works
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/.venv/bin/python __INSTALL_DIR__/main.py
+Restart=always
+RestartSec=5
+# Give Discord / MySQL a moment after boot
+TimeoutStartSec=60
+
+# Safer defaults
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logs: journalctl -u stocktips -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=stocktips
+
+[Install]
+WantedBy=multi-user.target

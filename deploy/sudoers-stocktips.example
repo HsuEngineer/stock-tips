@@ -1,8 +1,10 @@
-# Install on the VM (adjust username):
+# Installed by deploy/install.sh (adjust username if needed).
 #   sudo cp deploy/sudoers-stocktips.example /etc/sudoers.d/stocktips
 #   sudo chmod 440 /etc/sudoers.d/stocktips
 #   sudo visudo -cf /etc/sudoers.d/stocktips
 #
-# Allows the bot user to reboot without a password (needed for /reboot).
+# Allows the bot service user to:
+#   - reboot the VM (/reboot Discord command)
+#   - restart/reload the systemd unit (/restart after /update)
 
-ubuntu ALL=NOPASSWD: /sbin/reboot, /usr/sbin/reboot
+__SERVICE_USER__ ALL=NOPASSWD: /sbin/reboot, /usr/sbin/reboot, /bin/systemctl restart stocktips, /bin/systemctl stop stocktips, /bin/systemctl start stocktips, /bin/systemctl status stocktips, /usr/bin/systemctl restart stocktips, /usr/bin/systemctl stop stocktips, /usr/bin/systemctl start stocktips, /usr/bin/systemctl status stocktips

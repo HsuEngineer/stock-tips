@@ -73,47 +73,54 @@ Discord 頻道  ←── 每 10 分鐘摘要
 
 ---
 
-## 快速開始
+## 快速開始（GCP 自動化）
 
-### 1. 下載並初始化（Ubuntu / GCP）
+完整說明：**[deploy/README.md](deploy/README.md)**
+
+### 方式 A — 一鍵建立新 VM（建議）
+
+在筆電或 Cloud Shell（需安裝 [`gcloud`](https://cloud.google.com/sdk/docs/install)）：
 
 ```bash
 git clone https://github.com/HsuEngineer/stock-tips.git
 cd stock-tips
-chmod +x create_env.bash start_project.bash
+cp deploy/secrets.env.example deploy/secrets.env
+nano deploy/secrets.env          # 填 DISCORD_TOKEN、CHANNEL_ID、OWNER_IDS
+
+chmod +x deploy/*.sh
+./deploy/gcp-create-vm.sh        # 建立 VM + 開機自動安裝
+```
+
+觀察安裝進度（約 2–5 分鐘）：
+
+```bash
+gcloud compute ssh stock-tips --zone asia-east1-b \
+  --command 'sudo tail -f /var/log/stocktips-startup.log'
+```
+
+完成後以 **systemd** `stocktips.service` 常駐（重開機也會自動起來）。到 Discord 執行 `/help` 或 `/digest`。
+
+### 方式 B — 已有 Ubuntu VM
+
+```bash
+git clone https://github.com/HsuEngineer/stock-tips.git
+cd stock-tips
+cp deploy/secrets.env.example deploy/secrets.env && nano deploy/secrets.env
+chmod +x deploy/install.sh
+sudo ./deploy/install.sh
+sudo systemctl status stocktips
+```
+
+### 方式 C — 手動 / tmux（不用 systemd）
+
+```bash
 ./create_env.bash
-```
-
-腳本會視需要安裝 Python / MySQL、建立 `Stock` 資料庫、建立 `.venv` 並安裝依賴。
-
-### 2. 設定 Discord
-
-```bash
-cp config.ini.example config.ini   # 若尚未產生
-nano config.ini
-```
-
-至少填入：
-
-```ini
-[DISCORD]
-TOKEN=your_bot_token
-CHANNEL_ID=1234567890
-OWNER_IDS=你的Discord使用者ID
-```
-
-> **取得使用者 ID：** Discord → 設定 → 進階 → 開啟開發者模式 → 右鍵自己的頭像 → 複製使用者 ID。
-
-邀請機器人時請勾選：`bot` + `applications.commands`，並給予傳送訊息 / 嵌入內容權限。
-
-### 3. 啟動
-
-```bash
+nano config.ini                  # Discord 設定
 tmux new -s stocktips './start_project.bash'
-# 離開工作階段：Ctrl+B，再按 D
 ```
 
-接著在 Discord 試試 `/help`、`/buy` 或 `/digest`。
+> **使用者 ID：** Discord → 開發者模式 → 右鍵頭像 → 複製使用者 ID。  
+> 邀請機器人請勾選 `bot` + `applications.commands`。
 
 ---
 
@@ -178,6 +185,18 @@ sudo visudo -cf /etc/sudoers.d/stocktips
 
 推程式到 GitHub 後：先 `/update`，再 `/restart`。
 
+### 保持常駐
+
+用 `deploy/install.sh` 或 `gcp-create-vm.sh` 安裝後，由 systemd 管理：
+
+```bash
+sudo systemctl status stocktips
+sudo journalctl -u stocktips -f
+sudo systemctl restart stocktips
+```
+
+Discord `/reboot` 後單元會自動再起。手動備援：`tmux new -s stocktips './start_project.bash'`。
+
 ---
 
 ## 成本與損益計算
@@ -210,23 +229,23 @@ sudo visudo -cf /etc/sudoers.d/stocktips
 
 ```text
 stock-tips/
-├── main.py              # 入口：設定 → 資料庫 → 機器人
-├── discord_bot.py       # 斜線指令 + 摘要排程
-├── portfolio.py         # 成交與均價
-├── stock.py             # yfinance 報價
-├── constituents.py      # 0050 抓取 / 快取
-├── database.py          # MySQL 與 schema
-├── i18n.py              # 語系載入
-├── ops.py               # update / restart / reboot
-├── locales/             # en.json、zh-TW.json
-├── data/                # 0050 種子資料
-├── deploy/              # sudoers 範例
-├── create_env.bash      # 新 VM 一鍵環境
-├── start_project.bash   # 啟動機器人
-├── PLAN.md              # 產品規劃
-├── DEVELOPER.md         # 維護者筆記
-├── README.md            # English
-└── README.zh-TW.md      # 繁體中文（本檔）
+├── main.py                 # 入口：設定 → 資料庫 → 機器人
+├── discord_bot.py          # 斜線指令 + 摘要排程
+├── portfolio.py / stock.py / constituents.py / database.py
+├── i18n.py + locales/      # en / zh-TW
+├── ops.py                  # /update /restart /reboot（支援 systemd）
+├── deploy/
+│   ├── README.md           # GCP 自動化完整說明
+│   ├── gcp-create-vm.sh    # 一鍵建 VM + 安裝
+│   ├── gcp-startup.sh      # 開機首次安裝腳本
+│   ├── install.sh          # Ubuntu 冪等安裝
+│   ├── stocktips.service   # systemd 單元模板
+│   ├── secrets.env.example # Discord 密鑰範本
+│   └── sudoers-…           # reboot + systemctl
+├── create_env.bash         # 輕量本機環境
+├── start_project.bash      # 前景執行
+├── README.md / README.zh-TW.md
+└── DEVELOPER.md / PLAN.md
 ```
 
 ---
@@ -237,7 +256,8 @@ stock-tips/
 |------|------|
 | 機器人立刻結束 | 在 `config.ini` 填入真實 `DISCORD.TOKEN` |
 | 沒有摘要訊息 | 檢查 `CHANNEL_ID` 與機器人發言權限 |
-| 新 VM MySQL 連不上 | 再執行一次 `./create_env.bash` |
+| 新 VM MySQL 連不上 | 再執行 `sudo ./deploy/install.sh` 或 `./create_env.bash` |
+| 服務起不來 | `sudo journalctl -u stocktips -n 80 --no-pager` |
 | 看不到斜線指令 | 等同步；用含 `applications.commands` 的連結重邀 |
 | `/update` 被拒 | 把你的使用者 ID 加進 `OWNER_IDS` |
 | 急漲急跌為空 | 休市，或沒有標的達門檻 |

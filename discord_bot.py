@@ -508,6 +508,23 @@ def create_bot(
         await bot.run_digest()
         await interaction.followup.send(bot.i18n.t("cmd.digest.ok"), ephemeral=True)
 
+    async def _apply_language(code: str) -> tuple[bool, str]:
+        available = ", ".join(list_languages())
+        wanted = code.strip()
+        known = {x.lower(): x for x in list_languages()}
+        key = wanted.lower().replace("_", "-")
+        if key not in known and key not in ("zh",):
+            return False, bot.i18n.t(
+                "cmd.lang.fail", lang=wanted, available=available
+            )
+        new_lang = bot.i18n.set_language(wanted)
+        try:
+            save_language_to_config(new_lang)
+        except Exception as e:
+            print(f"Could not persist language: {e}")
+        sample = bot.i18n.t("digest.title")
+        return True, bot.i18n.t("cmd.lang.ok", lang=new_lang) + f"\n→ {sample}"
+
     @bot.tree.command(name="lang", description=i18n.t("cmd.lang.desc"))
     @app_commands.describe(code=i18n.t("cmd.lang.code"))
     async def lang_cmd(interaction: discord.Interaction, code: str | None = None):
@@ -521,24 +538,33 @@ def create_bot(
                 ephemeral=True,
             )
             return
+        ok, msg = await _apply_language(code)
+        await interaction.followup.send(msg, ephemeral=True)
 
-        wanted = code.strip()
-        known = {x.lower(): x for x in list_languages()}
-        if wanted.lower() not in known and wanted.lower() not in ("zh",):
-            await interaction.followup.send(
-                bot.i18n.t("cmd.lang.fail", lang=wanted, available=available),
-                ephemeral=True,
+    @lang_cmd.autocomplete("code")
+    async def lang_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        cur = current.lower()
+        return [
+            app_commands.Choice(name=lang, value=lang)
+            for lang in list_languages()
+            if not cur or cur in lang.lower()
+        ][:25]
+
+    @bot.command(name="lang")
+    async def lang_prefix(ctx: commands.Context, code: str | None = None):
+        """Fallback: type !lang zh-TW or !lang en in chat."""
+        if not code:
+            available = ", ".join(list_languages())
+            await ctx.reply(
+                bot.i18n.t(
+                    "cmd.lang.list", lang=bot.i18n.lang, available=available
+                )
             )
             return
-
-        new_lang = bot.i18n.set_language(wanted)
-        try:
-            save_language_to_config(new_lang)
-        except Exception as e:
-            print(f"Could not persist language: {e}")
-        await interaction.followup.send(
-            bot.i18n.t("cmd.lang.ok", lang=new_lang), ephemeral=True
-        )
+        ok, msg = await _apply_language(code)
+        await ctx.reply(msg)
 
     bot._stock_token = token  # noqa: SLF001
     return bot

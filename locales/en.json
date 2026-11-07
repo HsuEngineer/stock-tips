@@ -78,8 +78,8 @@
   "cmd.digest.ok": "Digest posted to channel.",
 
   "cmd.lang.desc": "Switch bot language",
-  "cmd.lang.code": "Language code, e.g. en or zh-TW",
-  "cmd.lang.ok": "Language switched to {lang}. Slash hints refresh after bot restart (or Discord cache refresh).",
+  "cmd.lang.code": "Pick a language (or type en / zh-TW)",
+  "cmd.lang.ok": "Language switched to **{lang}**. Reply text is updated now; slash menu hints refresh after bot restart.",
   "cmd.lang.fail": "Unsupported language `{lang}`. Available: {available}",
-  "cmd.lang.list": "Current language: **{lang}**. Available: {available}"
+  "cmd.lang.list": "Current language: **{lang}**. Available: {available}\nUse `/lang` then choose `code`, or type `!lang zh-TW`"
 }

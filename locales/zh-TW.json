@@ -78,8 +78,8 @@
   "cmd.digest.ok": "已將摘要發送到頻道。",
 
   "cmd.lang.desc": "切換機器人語言",
-  "cmd.lang.code": "語言代碼，例如 en 或 zh-TW",
-  "cmd.lang.ok": "已切換為 {lang}。斜線指令提示需重啟機器人（或等 Discord 快取更新）後才會完全刷新。",
+  "cmd.lang.code": "選擇語言（或輸入 en / zh-TW）",
+  "cmd.lang.ok": "已切換為 **{lang}**。回覆內容已立即更新；斜線選單提示需重啟機器人才會刷新。",
   "cmd.lang.fail": "不支援語言 `{lang}`。可用：{available}",
-  "cmd.lang.list": "目前語言：**{lang}**。可用：{available}"
+  "cmd.lang.list": "目前語言：**{lang}**。可用：{available}\n請用 `/lang` 再選 `code`，或直接輸入 `!lang zh-TW`"
 }
